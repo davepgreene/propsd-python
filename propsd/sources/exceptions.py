@@ -1,0 +1,2 @@
+class SourceSchedulingError(Exception):
+    pass
