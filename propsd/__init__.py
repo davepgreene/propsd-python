@@ -33,6 +33,7 @@ def start(args):
 def propsd(config, colorize):
     load_user_settings(config)
     settings.set('colorize', colorize)
+
     click.echo(settings.get('log'))
 
     if environ.get('FLASK_DEBUG') != '1':
