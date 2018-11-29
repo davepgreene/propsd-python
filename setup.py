@@ -17,8 +17,16 @@ setup(
         'PyYAML==3.13',
         'configobj==5.0.6'
     ],
+    extras_require={
+        'dev': [
+            'pylint==2.1.1',
+            'flake8==3.5.0',
+            'localstack==0.8.8'
+        ]
+    },
     entry_points='''
         [console_scripts]
         propsd=propsd:propsd
+        metadata-mock=propsd.bin:metadata
     ''',
 )
