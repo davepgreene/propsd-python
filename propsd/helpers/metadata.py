@@ -1,13 +1,12 @@
 import sys
 import json
 from pathlib import Path
-from flask import Flask, abort, Response
-from meinheld import server
+from quart import Quart, abort, Response
 import click
 
-app = Flask(__name__)
+app = Quart(__name__)
 
-NOT_FOUND_BODY = '''
+not_found_body = """
 <!DOCTYPE html PUBLIC "-//W3C//DTD XHTML 1.0 Transitional//EN"
     "http://www.w3.org/TR/xhtml1/DTD/xhtml1-transitional.dtd">
 <html xmlns="http://www.w3.org/1999/xhtml" xml:lang="en" lang="en">
@@ -18,7 +17,7 @@ NOT_FOUND_BODY = '''
         <h1>404 - Not Found</h1>
     </body>
 </html>
-'''
+"""
 
 
 @click.command()
@@ -31,15 +30,14 @@ def metadata(data, host, port):
     if data is None:
         sys.exit(1)
 
-    with open(data) as f:
-        PATHS = json.load(f)
-    app.config.update(PATHS=PATHS)
-    server.listen((host, port))
-    server.run(app)
+    with open(data) as file:
+        paths = json.load(file)
+    app.config.update(PATHS=paths)
+    app.run(host=host, port=port)
 
 
 @app.route('/<path:subpath>', methods=['GET'])
-def metadata_route(subpath):
+async def metadata_route(subpath):
     paths = app.config.get('PATHS')
     path = '/{}'.format(subpath)
 
@@ -49,5 +47,5 @@ def metadata_route(subpath):
 
 
 @app.errorhandler(404)
-def not_found(err):
-    return Response(NOT_FOUND_BODY, 404, mimetype='text/html')
+async def not_found(err):  # pylint: disable=unused-argument
+    return Response(not_found_body, 404, mimetype='text/html')

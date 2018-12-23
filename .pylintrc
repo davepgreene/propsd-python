@@ -1,0 +1,76 @@
+[MESSAGES CONTROL]
+
+# Disable the message, report, category or checker with the given id(s). You
+# can either give multiple identifiers separated by comma (,) or put this
+# option multiple times (only on the command line, not in the configuration
+# file where it should appear only once).You can also use "--disable=all" to
+# disable everything first and then reenable specific checks. For example, if
+# you want to run only the similarities checker, you can use "--disable=all
+# --enable=similarities". If you want to run only the classes checker, but have
+# no Warning level messages displayed, use"--disable=all --enable=classes
+# --disable=W". Instead passing the pylint ID message you can pass the name of
+# the ID either "pylint --list-msgs" or go to this link
+# https://github.com/janjur/readable-pylint-messages/blob/master/README.md
+disable=missing-docstring,
+        too-many-nested-blocks,
+        too-many-locals,
+        too-many-branches,
+        too-many-statements,
+        too-many-ancestors,
+        too-many-instance-attributes,
+        too-few-public-methods,
+        too-many-public-methods,
+        too-many-return-statements,
+        too-many-arguments,
+        too-many-boolean-expressions,
+        bad-continuation,
+        line-too-long,
+        duplicate-code
+
+[FORMAT]
+# Maximum number of characters on a single line.
+max-line-length=120
+
+[BASIC]
+
+# Regular expression matching correct argument names. Overrides argument-
+# naming-style
+argument-rgx=[a-z_]([a-z0-9_]+)$
+
+# Naming style matching correct attribute names
+attr-naming-style=snake_case
+
+# Regular expression matching correct attribute names. Overrides attr-naming-
+# style
+attr-rgx=[a-z_]([a-z0-9_]+)$
+
+# Regular expression matching correct class attribute names. Overrides class-
+# attribute-naming-style
+class-attribute-rgx=[a-z_]([a-z0-9_]+)$
+
+# Naming style matching correct constant names
+const-naming-style=snake_case
+
+# Regular expression matching correct constant names. Overrides const-naming-
+# style
+#const-rgx=[a-z_]([a-z0-9_]+)$
+
+# Regular expression matching correct function names. Overrides function-
+# naming-style
+function-rgx=[a-z_]([a-z0-9_]+)$
+
+# Regular expression matching correct method names. Overrides method-naming-
+# style
+method-rgx=[a-z_]([a-z0-9_]+)$
+
+# Naming style matching correct variable names
+variable-naming-style=snake_case
+
+# Regular expression matching correct variable names. Overrides variable-
+# naming-style
+variable-rgx=[a-z_]([a-z0-9_]+)$
+
+# Naming style matching correct module names
+module-naming-style=any
+
+extension-pkg-whitelist=meinheld.server

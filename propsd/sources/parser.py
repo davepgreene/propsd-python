@@ -3,4 +3,4 @@ class Parser:
         pass
 
     def parse(self):
-        raise NotImplementedError("`parse` must be implimented in `Parser` subclasses.")
+        raise NotImplementedError('`parse` must be implemented in `Parser` subclasses.')

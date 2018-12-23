@@ -1,0 +1,44 @@
+{
+  "version": 1.0,
+  "sources": [
+    {
+      "name": "global",
+      "type": "s3",
+      "parameters": {
+        "path": "global.json"
+      }
+    },
+    {
+      "name": "account",
+      "type": "s3",
+      "parameters": {
+        "path": "account/12345.json"
+      }
+    },
+    {
+      "name": "ami",
+      "type": "s3",
+      "parameters": {
+        "path": "{{ instance:ami-id }}.json"
+      }
+    },
+    {
+      "name": "iam-role",
+      "type": "s3",
+      "parameters": {
+        "path": "role/{{ instance:iam-role }}.json"
+      }
+    },
+    {
+      "name": "name-tag",
+      "type": "s3",
+      "parameters": {
+        "path": "{{ instance:tags:Name }}.json"
+      }
+    },
+    {
+      "name": "consul",
+      "type": "consul"
+    }
+  ]
+}

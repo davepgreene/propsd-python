@@ -7,5 +7,5 @@ path = "index.json"
 host = "127.0.0.1:8080"
 
 [log]
-level = "info"
+level = "debug"
 json = false

@@ -1,27 +1,41 @@
-from dynaconf import settings as dc_settings, loaders, constants as ct
-import yaml
 import json
+from datetime import timedelta
+import durationpy
+import yaml
 import toml
 from configobj import ConfigObj, ConfigObjError
-from propsd.config.default import *
+from dynaconf import settings as dc_settings, loaders, constants as ct
+from propsd.util import called
+from propsd.config.default import *  # noqa pylint: disable=wildcard-import
 
 settings = dc_settings
 settings.MERGE_ENABLED_FOR_DYNACONF = True
 
 
+settings.set('_configured', lambda: load_default_settings.has_been_called and load_default_settings.has_been_called)
+
+
+def to_seconds(duration: str) -> int:
+    return durationpy.from_str(duration).seconds
+
+
+@called
 def load_user_settings(path):
-    loaders = [
+    settings_loaders = [
         {'ext': ct.YAML_EXTENSIONS, 'name': 'YAML', 'loader': _load_yaml},
         {'ext': ct.TOML_EXTENSIONS, 'name': 'TOML', 'loader': _load_toml},
         {'ext': ct.INI_EXTENSIONS, 'name': 'INI', 'loader': _load_ini},
         {'ext': ct.JSON_EXTENSIONS, 'name': 'JSON', 'loader': _load_json},
     ]
-    conf = next(loader['loader'](path) for loader in loaders if path.endswith(loader['ext']))
+    conf = next(
+        loader['loader'](path) for loader in settings_loaders if path.endswith(loader['ext'])
+    )
 
-    for k, v in conf.items():
-        settings.set(k, v)
+    for key, value in conf.items():
+        settings.set(key, value)
 
 
+@called
 def load_default_settings():
     loaders.py_loader.load(settings, 'propsd.config')
 

@@ -1,0 +1,7 @@
+[flake8]
+max-line-length=120
+
+# flake8 error codes: http://flake8.pycqa.org/en/3.5.0/user/error-codes.html
+ignore=F401, # imported but unused
+       E722, # do not use bare except, specify exception instead
+       F841  # unused varaiable
