@@ -6,6 +6,9 @@ path = "index.json"
 [metadata]
 host = "127.0.0.1:8080"
 
+[consul]
+scheme = "http"
+
 [log]
 level = "debug"
 json = false

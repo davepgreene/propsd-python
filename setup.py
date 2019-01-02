@@ -5,27 +5,31 @@ setup(
     version='0.1',
     packages=find_packages(),
     install_requires=[
-        'boto3==1.9.47',
-        'Click==7.0',
-        'consulate==0.6.0',
-        'dynaconf==1.1.0',
-        'quart==0.6.10',
-        'requests==2.20.1',
-        'meinheld==0.6.1',
         'apscheduler==3.5.3',
-        'aiohttp==3.4.4',
+        'boto3==1.9.71',
+        'boltons==18.0.1',
+        'Click==7.0',
+        'python-consul==1.1.0',
+        'dynaconf==1.2.0',
+        'flatdict==3.1.0',
+        'Jinja2==2.10',
+        'pytz==2018.7',
+        'quart==0.7.1',
+        'requests==2.20.1',
+    ] + [
         # Config loaders
-        'toml==0.10.0',
+        'configobj==5.0.6',
         'PyYAML==3.13',
-        'configobj==5.0.6'
+        'toml==0.10.0',
     ],
     extras_require={
         'dev': [
-            'pylint==2.1.1',
-            'flake8==3.5.0',
-            'localstack==0.8.8',
+            'pylint==2.2.2',
+            'flake8==3.6.0',
+            'localstack==0.8.9',
             'amazon-kclpy==1.5.0',
-            'watchdog==0.9.0'
+            'watchdog==0.9.0',
+            'mypy==0.650'
         ]
     },
     entry_points="""
