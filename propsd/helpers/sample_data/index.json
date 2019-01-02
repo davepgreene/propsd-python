@@ -37,6 +37,13 @@
       }
     },
     {
+      "name": "service",
+      "type": "s3",
+      "parameters": {
+        "path": "{{ image:service }}.json"
+      }
+    },
+    {
       "name": "consul",
       "type": "consul"
     }

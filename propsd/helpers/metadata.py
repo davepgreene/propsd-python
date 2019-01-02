@@ -1,8 +1,9 @@
-import sys
 import json
+import sys
 from pathlib import Path
-from quart import Quart, abort, Response
+
 import click
+from quart import Quart, abort, Response
 
 app = Quart(__name__)
 
@@ -36,13 +37,43 @@ def metadata(data, host, port):
     app.run(host=host, port=port)
 
 
+@app.route('/', methods=['GET'])
+async def root():
+    return _get_path_data('/')
+
+
 @app.route('/<path:subpath>', methods=['GET'])
 async def metadata_route(subpath):
-    paths = app.config.get('PATHS')
-    path = '/{}'.format(subpath)
+    if subpath in ['latest', 'latest/']:
+        return _latest()
+    return _get_path_data('/{}'.format(subpath))
 
+
+def _latest():
+    latest = ['{}/\n'.format(l) for l in _get_sub_paths('/latest')]
+    return Response(''.join(latest), mimetype='text/plain')
+
+
+def _get_sub_paths(prefix):
+    paths = app.config.get('PATHS')
+    accumulator = []
+    for path in paths:
+        if path.startswith(prefix):
+            path = path[len(prefix):]
+            sub_paths = list(filter(None, path.split('/')))
+            if len(sub_paths) == 1:
+                accumulator.append('/'.join(sub_paths))
+    return accumulator
+
+
+def _get_path_data(path):
+    paths = app.config.get('PATHS')
     if path not in paths.keys():
-        abort(404)
+        sub_paths = _get_sub_paths(path)
+        if not sub_paths:
+            abort(404)
+        else:
+            return Response(''.join(['{}/\n'.format(s) for s in sub_paths]), mimetype='text/plain')
     return Response(paths.get(path), mimetype='text/plain')
 
 

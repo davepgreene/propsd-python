@@ -1,4 +1,5 @@
 {
+  "/": "latest/\n",
   "/latest/dynamic/": "instance-identity/\n",
   "/latest/meta-data/": "ami-id\nami-launch-index\nami-manifest-path\nblock-device-mapping/\nhostname\niam/\ninstance-action\ninstance-id\ninstance-type\nlocal-hostname\nlocal-ipv4\nmac\nmetrics/\nnetwork/\nplacement/\nprofile\npublic-hostname\npublic-ipv4\npublic-keys/\nreservation-id\nsecurity-groups\nservices/",
   "/latest/dynamic/instance-identity/": "document\nsignature\ndsa2048\npkcs7\n",
