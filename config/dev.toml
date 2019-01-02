@@ -1,6 +1,6 @@
 [index]
-endpoint = "http://127.0.0.1:4569"
-bucket = "propsd-s3"
+endpoint = "http://127.0.0.1:4572"
+bucket = "propsd"
 path = "index.json"
 
 [metadata]
@@ -12,3 +12,7 @@ scheme = "http"
 [log]
 level = "debug"
 json = false
+
+[properties.image]
+service = "some-cool-service"
+version = "1.0.0"
