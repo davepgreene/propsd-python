@@ -1,0 +1,50 @@
+version: '3'
+
+services:
+  consul-agent-1: &consul-agent
+    image: consul:latest
+    command: "agent -retry-join consul-server-bootstrap -client 0.0.0.0"
+  consul-server-1: &consul-server
+    <<: *consul-agent
+    command: "agent -server -retry-join consul-server-bootstrap -client 0.0.0.0"
+  consul-server-2:
+    <<: *consul-server
+  consul-server-bootstrap:
+    <<: *consul-agent
+    ports:
+      - "8400:8400"
+      - "8500:8500"
+      - "8600:8600"
+      - "8600:8600/udp"
+    command: "agent -server -bootstrap-expect 3 -ui -client 0.0.0.0"
+  seed-consul-service:
+    image: spotify/alpine:latest
+    command: "curl -O https://raw.githubusercontent.com/eficode/wait-for/master/wait-for && chmod +x wait-for &&  echo \"Waiting!\" && ./wait-for consul-server-bootstrap:8500 -t 5 -- curl -X PUT -d '{\"name\": \"some-cool-service\"}' consul-server-bootstrap:8500/v1/agent/service/register"
+    depends_on:
+      - consul-server-bootstrap
+      - consul-server-1
+      - consul-server-2
+  metadata:
+    build: .
+    command: "metadata-mock --host 0.0.0.0"
+    ports:
+      - "8080:8080"
+  s3:
+    build: .
+    command: "s3-mock"
+    volumes:
+      - "~/.aws:/root/.aws"
+    ports:
+      - "4572:4572"
+  propsd:
+    build: .
+    command: "wait-for propsd -c config/docker.toml --colorize"
+    volumes:
+      - .:/app
+      - "~/.aws:/root/.aws"
+    ports:
+      - "9100:9100"
+    depends_on:
+      - seed-consul-service
+      - metadata
+      - s3
