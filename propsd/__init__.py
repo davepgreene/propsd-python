@@ -1,71 +1,34 @@
 #!/usr/bin/env python3
 
-from os import environ
 import logging
+from os import environ
 from pathlib import Path
 
 import click
-from quart import Quart
 from dynaconf import FlaskDynaconf
-from propsd.config import load_user_settings, load_default_settings, settings, to_seconds
-from propsd.api import v1
-from propsd.sources.metadata import MetadataSource
-from propsd.lib import Sources
-from propsd import constants
-from propsd.sources.source import SourceEvents, get_event
-from propsd.sources.tags import TagsSource
+from quart import Quart
 
-settings.set('debug', environ.get('FLASK_DEBUG') == '1')
+from propsd import constants
+from propsd.api import v1
+from propsd.config import load_user_settings, load_default_settings, settings, to_seconds, unbox_settings_object
+from propsd.sourcemanager import SourceManager
+from propsd.sources import *
+from propsd.enums import SourceEvents, EnumEncoder, SourceState
+from propsd.sources.factory import SourceFactory
+from propsd.sources.schedulable import get_event
 
 logging.basicConfig(level=logging.INFO, format='[%(asctime)s] (%(levelname)s) %(name)s: %(message)s')
-logger = logging.getLogger(constants.APP_NAME)
+logger = logging.getLogger(__name__)
 
 load_default_settings()
 
 app = Quart(constants.APP_NAME, static_folder=None)
 FlaskDynaconf(app)
+app.json_encoder = EnumEncoder
 app.register_blueprint(v1, url_prefix='/v1')
 
-
-def register_initial_sources():
-    from propsd.util.dispatch import receiver
-    m = MetadataSource()
-    t = TagsSource()
-
-    def register_tags(**kwargs):
-        pass
-
-    def register_index(**kwargs):
-        pass
-
-    signal = get_event(SourceEvents.UPDATE)
-    signal.connect(register_tags, sender=MetadataSource, weak=False)
-    Sources().schedule(m, to_seconds(settings.get('metadata.interval')))
-    Sources().schedule(t, to_seconds(settings.get('tags.interval')))
-
-
-def start():
-    from meinheld import server
-    host = settings.get('service.hostname')
-    port = settings.get('service.port')
-
-    logger.info('Beginning scheduling')
-    # Load in properties from the config file
-    config_properties = settings.get('properties', {})
-    if config_properties:
-        # If the properties key exists we have to unbox the value
-        config_properties = config_properties.to_dict()
-
-    Sources(initial_properties=config_properties)
-
-    register_initial_sources()
-    Sources().start()
-
-    if settings.DEBUG:
-        app.run(host=host, port=port, debug=False, use_reloader=False)
-    else:
-        server.listen((host, port))
-        server.run(app)
+_required_initial_sources = [MetadataSource, TagsSource, KubernetesSource]
+_loaded_initial_sources = []
 
 
 @click.command()
@@ -73,10 +36,66 @@ def start():
               default=Path('/') / 'etc' / 'propsd' / 'config.json', help='Path to local propsd configuration')
 @click.option('--colorize', is_flag=True, default=False, help='Colorize log output')
 def propsd(configuration, colorize):
+    # Load settings from file, cli flags, and environment
     load_user_settings(configuration)
     settings.set('colorize', colorize)
+    settings.set('debug', environ.get('FLASK_DEBUG') == '1')
     logger.setLevel(settings.get('log.level').upper())
 
-    logger.info('Starting server')
+    logger.info('Propsd: Starting server')
 
-    start()
+    logger.info('Propsd: Beginning scheduling sources')
+    # Load in properties from the config file
+    config_properties = unbox_settings_object('properties')
+    # Create the singleton instance of the SourceManager seeded with properties from the config file
+    SourceManager(config_properties)
+
+    # We need to make sure that both the tags and metadata sources have completed their first pass
+    # before we load the index. Because these are special cases we can delay the index until they've
+    # both fired their UPDATE event.
+    def register_index(**kwargs):
+        sender = kwargs.get('sender')
+        source = kwargs.get('source')
+        if sender in _required_initial_sources:
+            _required_initial_sources.remove(sender)
+            _loaded_initial_sources.append(source)
+
+        if not _required_initial_sources:
+            signal.disconnect(register_index, sender=MetadataSource)
+            signal.disconnect(register_index, sender=TagsSource)
+            signal.disconnect(register_index, sender=KubernetesSource)
+            index_settings = unbox_settings_object('index')
+
+            # Unschedule any initial sources that have been shutdown
+            for s in _loaded_initial_sources:
+                status = s.status()
+                if status.get('state') == SourceState.SHUTDOWN:
+                    SourceManager.unschedule(s)
+
+            SourceManager.schedule(SourceFactory.new('s3-index')(opts=index_settings),
+                                   index=True,
+                                   delay=to_seconds(settings.get('index.interval')))
+
+    signal = get_event(SourceEvents.UPDATE)
+    signal.connect(register_index, sender=MetadataSource, weak=False)
+    signal.connect(register_index, sender=TagsSource, weak=False)
+    signal.connect(register_index, sender=KubernetesSource, weak=False)
+
+    SourceManager.schedule(SourceFactory.new('ec2-metadata')(),
+                           namespace='instance',
+                           delay=to_seconds(settings.get('metadata.interval')))
+
+    SourceManager.schedule(SourceFactory.new('ec2-tags')(),
+                           namespace='instance:tags',
+                           delay=to_seconds(settings.get('tags.interval')))
+
+    SourceManager.schedule(SourceFactory.new('kubernetes')(),
+                           namespace='instance:kubernetes',
+                           delay=to_seconds(settings.get('kubernetes.interval')))
+
+    SourceManager.start()
+
+    host = settings.get('service.hostname')
+    port = settings.get('service.port')
+    logger.info('Propsd: starting server on %s:%d', host, port)
+    app.run(host=host, port=port, debug=False, use_reloader=False)

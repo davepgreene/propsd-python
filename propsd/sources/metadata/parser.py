@@ -1,14 +1,15 @@
 import json
-from os import path as p
 import re
+from os import path as p
+
 from propsd.sources.parser import Parser
 
 
-def at_basename(path, metadata, properties):
+def at_basename(path: str, metadata: dict, properties: dict):
     properties[p.basename(path)] = metadata.get(path)
 
 
-def document(path, metadata, properties):
+def document(path: str, metadata: dict, properties: dict):
     identity_document = metadata.get(path)
     # Return early if there's no data here
     if not identity_document:
@@ -24,7 +25,7 @@ def document(path, metadata, properties):
     properties['region'] = identity.get('region')
 
 
-def pkcs7(path, metadata, properties):
+def pkcs7(path: str, metadata: dict, properties: dict):
     pkcs7_document = metadata.get(path)
     # Return early if there's no data here
     if not pkcs7_document:
@@ -35,7 +36,7 @@ def pkcs7(path, metadata, properties):
     properties['identity']['pkcs7'] = pkcs7_document
 
 
-def security_credentials(path, metadata, properties):
+def security_credentials(path: str, metadata: dict, properties: dict):
     match = re.compile('^{}'.format(path))
     roles = [(k, v) for k, v in metadata.items() if match.match(k)]
 
@@ -59,7 +60,7 @@ def security_credentials(path, metadata, properties):
     properties['credentials']['expires'] = credentials.get('Expiration')
 
 
-def macs(path, metadata, properties):
+def macs(path: str, metadata: dict, properties: dict):
     mac = metadata.get('meta-data/mac')
     # Return early if there's no data here
     if not mac:
@@ -102,13 +103,8 @@ mappings = {
 
 
 class MetadataParser(Parser):
-    _properties = {}
-
-    def __init__(self, data: dict) -> None:
-        super().__init__()
-        self._metadata = data
-
-    def parse(self):
+    def parse(self, data: dict) -> dict:
+        properties = {}
         for path, fn in mappings.items():
-            fn(path, self._metadata, self._properties)
-        return self._properties
+            fn(path, data, properties)
+        return properties

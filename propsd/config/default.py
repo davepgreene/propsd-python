@@ -19,7 +19,7 @@ LOG = {
 CONSUL = {
     'host': '127.0.0.1',
     'port': 8500,
-    'secure': True
+    'scheme': 'https'
 }
 
 METADATA = {
@@ -28,5 +28,9 @@ METADATA = {
 }
 
 TAGS = {
+    'interval': '30s'
+}
+
+KUBERNETES = {
     'interval': '30s'
 }

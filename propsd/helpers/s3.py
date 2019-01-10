@@ -19,6 +19,8 @@ bucket_name = 'propsd'
 s3_resource = boto3.resource('s3', 'us-east-1',
                              endpoint_url='http://localhost:4572',
                              use_ssl=False,
+                             aws_access_key_id='anything',
+                             aws_secret_access_key='anything',
                              config=Config(s3={'addressing_style': 'path'}))
 
 
@@ -57,9 +59,12 @@ class S3SyncFSEventHandler(FileSystemEventHandler):
 
 @click.command()
 @click.option('--verbose', '-v', is_flag=True, default=False, help='Verbose logging')
-def s3(verbose):
-    os.environ['HOSTNAME'] = '0.0.0.0'
-    os.environ['HOSTNAME_EXTERNAL'] = '0.0.0.0'
+@click.option('--data', '-d', default=sample_data_path, type=click.Path(
+    exists=True, dir_okay=True, resolve_path=True
+))
+def s3(verbose, data):
+    if data and not isinstance(data, Path):
+        data = Path(data)
     if verbose:
         os.environ['DEBUG'] = '1'
     thread = start_infra(asynchronous=True, apis=['s3'])
@@ -68,9 +73,9 @@ def s3(verbose):
     bucket_resource = s3_resource.Bucket(bucket_name)
     bucket_resource.create()
 
-    event_handler = S3SyncFSEventHandler(sample_data_path, bucket_resource)
+    event_handler = S3SyncFSEventHandler(data, bucket_resource)
     observer = Observer()
-    observer.schedule(event_handler, str(sample_data_path), recursive=True)
+    observer.schedule(event_handler, str(data), recursive=True)
     observer.start()
 
     event_handler.sync_s3_data()

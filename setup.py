@@ -16,6 +16,7 @@ setup(
         'pytz==2018.7',
         'quart==0.7.1',
         'requests==2.20.1',
+        'kubernetes==8.0.1',
     ] + [
         # Config loaders
         'configobj==5.0.6',

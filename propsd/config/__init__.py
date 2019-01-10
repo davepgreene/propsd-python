@@ -1,12 +1,14 @@
 import json
-from datetime import timedelta
-import durationpy
-import yaml
+from typing import Optional
+
 import toml
+import yaml
+from boltons.timeutils import parse_timedelta
 from configobj import ConfigObj, ConfigObjError
 from dynaconf import settings as dc_settings, loaders, constants as ct
-from propsd.util import called
+
 from propsd.config.default import *  # noqa pylint: disable=wildcard-import
+from propsd.util import called
 
 settings = dc_settings
 settings.MERGE_ENABLED_FOR_DYNACONF = True
@@ -15,8 +17,14 @@ settings.MERGE_ENABLED_FOR_DYNACONF = True
 settings.set('_configured', lambda: load_default_settings.has_been_called and load_default_settings.has_been_called)
 
 
-def to_seconds(duration: str) -> int:
-    return durationpy.from_str(duration).seconds
+def unbox_settings_object(key):
+    # If the properties key exists we have to unbox the value
+    obj = settings.get(key, {})
+    return obj.to_dict() if obj else obj
+
+
+def to_seconds(duration: Optional[str]) -> Optional[int]:
+    return parse_timedelta(duration).seconds if duration else None
 
 
 @called

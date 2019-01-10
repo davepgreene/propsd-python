@@ -1,91 +1,71 @@
-from typing import Optional, Mapping
-from enum import Enum
-from apscheduler.job import Job
+import logging
+from typing import Optional, Mapping, Union, Type, TYPE_CHECKING
 
-from propsd.util.dispatch import Signal
+from propsd.enums import SourceStatus, SourceState
+from propsd.sourcemanager import SourceManager
+from propsd.sources.schedulable import Schedulable
 from propsd.util.immutabledict import ImmutableDict
-from propsd.lib import Sources
-from propsd.util import dispatch
+
+if TYPE_CHECKING:
+    from propsd.sources.parser import Parser
 
 
-class SourceStatus(Enum):
-    # pylint: disable=invalid-name
-    # Non - data responses from provider resources
-    NO_UPDATE = 'NO_UPDATE'
-    NO_EXIST = 'NO_EXIST'
-    # Lifecycle states
-    CREATED = 'CREATED'
-    INITIALIZING = 'INITIALIZING'
-    WAITING = 'WAITING'
-    RUNNING = 'RUNNING'
-
-    SHUTDOWN = 'SHUTDOWN'
-    # Error States
-    WARNING = 'WARNING'
-    ERROR = 'ERROR'
-
-
-class SourceEvents(Enum):
-    # pylint: disable=invalid-name
-    CREATED = 'CREATED'
-    INITIALIZED = 'INITIALIZED'
-    NO_UPDATE = 'NO_UPDATE'
-    ERROR = 'ERROR'
-    UPDATE = 'UPDATE'
-    SHUTDOWN = 'SHUTDOWN'
-
-
-class Source:
+class Source(Schedulable):
     _properties: ImmutableDict = ImmutableDict()
-    _options: dict = {}
-    _state: Optional[str] = None
+    options: dict = {}
+    type: str = ''
+    name: str = ''
+    _status: Optional[SourceStatus] = None
+    _signature: Optional[Union[str, bytes]] = None
+    _logger: logging.Logger = logging.getLogger(__name__)
+    _parser: Optional[Type['Parser']] = None
 
-    events: dict = {
-        SourceEvents.CREATED: dispatch.Signal(providing_args=['source']),
-        SourceEvents.INITIALIZED: dispatch.Signal(providing_args=['source']),
-        SourceEvents.NO_UPDATE: dispatch.Signal(providing_args=['source']),
-        SourceEvents.ERROR: dispatch.Signal(providing_args=['source', 'error']),
-        SourceEvents.UPDATE: dispatch.Signal(providing_args=['source', 'data']),
-        SourceEvents.SHUTDOWN: dispatch.Signal(providing_args=['source'])
-    }
-
-    def __init__(self, name: str, instances: Optional[int] = None, opts: Optional[object] = None) -> None:
+    def __init__(self, name: str, instances: Optional[int] = None, opts: Optional[dict] = None) -> None:
+        super().__init__()
         if not name:
             raise NotImplementedError('Source: Sources must have a `name` parameter.')
 
         self.name = name
         self.instances = instances
         if opts:
-            self._options = opts
-        self._state = SourceStatus.CREATED
-        self._send_event(SourceEvents.CREATED, source=self)
+            self.options = opts
+
+    def __repr__(self):
+        return '{}.{}'.format(self.__class__.__name__, self.name)
 
     @property
-    def job(self) -> Job:
-        return Sources.get_job(str(self))
-
-    def get(self):
-        raise NotImplementedError('`get` must be implemented in `Source` subclasses.')
+    def identity(self) -> str:
+        return SourceManager.identity(self.name.encode('utf-8'), self.type.encode('utf-8'), self.options)
 
     @property
     def properties(self) -> ImmutableDict:
         return self._properties
 
     @properties.setter
-    def properties(self, properties: Mapping):
-        self._properties = self._properties.update(**properties)
+    def properties(self, properties: Mapping, merge: bool = False):
+        self._properties = self._properties.update(**properties) if merge else ImmutableDict(properties)
+
+    @property
+    def ok(self):
+        return self._status not in [SourceStatus.ERROR, SourceStatus.WARNING, SourceState.SHUTDOWN]
 
     def status(self):
         return {
-            'state': self._state
+            'name': self.name,
+            'type': self.type,
+            'ok': self.ok,
+            'state': self._state,
+            'status': self._status,
+            'updated': self.updated
         }
 
-    def _send_event(self, event: SourceEvents, **kwargs: Optional[dict]) -> None:
-        self.events[event].send_robust(sender=self.__class__, **kwargs)
+    async def get(self):
+        if self._state == SourceState.SHUTDOWN:
+            self._logger.info('Source: Source {} has been shutdown, but not unscheduled.'.format(self.name))
+            return
+        self._pre_get()
+        self._get()
+        self._post_get()
 
-    def __repr__(self):
-        return '{}.{}'.format(self.__class__.__name__, self.name)
-
-
-def get_event(event: SourceEvents) -> Signal:
-    return Source.events[event]
+    def _get(self):
+        raise NotImplementedError('`_get` must be implemented in `Source` subclasses.')

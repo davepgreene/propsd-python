@@ -9,10 +9,11 @@ The function `func_accepts_kwargs` was sourced from django.utils.inspect
 # pylint: skip-file
 # flake8: noqa
 
+import inspect
 import threading
 import weakref
-import inspect
-from propsd import settings
+
+from propsd.config import settings
 
 
 def func_accepts_kwargs(func):

@@ -1,35 +1,38 @@
-from typing import Optional
-import logging
-from collections import deque
-import hashlib
-import time
 import base64
-import requests
+import hashlib
+import logging
+import time
+from collections import deque
+from typing import Optional
+
 import boto3
+import requests
 from botocore.exceptions import ClientError
-from propsd.sources.source import Source, SourceEvents
-from propsd import constants
+
 from propsd.config import settings
+from propsd.enums import SourceEvents, SourceStatus
+from propsd.sources.factory import SourceFactory
 from propsd.sources.metadata.parser import mappings, MetadataParser
+from propsd.sources.source import Source
 
-logger = logging.getLogger('{}.sources.metadata'.format(constants.APP_NAME))
 
-
+@SourceFactory('ec2-metadata')
 class MetadataSource(Source):
     # pylint: disable=invalid-name
     VERSION = 'latest'
     DEFAULT_TIMEOUT = 5  # in seconds
     DEFAULT_HOST = '169.254.169.254'
     # pylint: enable=invalid-name
+    _logger: logging.Logger = logging.getLogger(__name__)
+    _parser: MetadataParser = MetadataParser()
 
-    def __init__(self, opts: Optional[object] = None):
+    def __init__(self, opts: Optional[dict] = None):
         super().__init__('ec2-metadata', 1, opts)
         self._host = settings.get('metadata.host') if settings.get('metadata.host') else self.DEFAULT_TIMEOUT
         self._timeout = settings.get('metadata.timeout') if settings.get('metadata.timeout') else self.DEFAULT_TIMEOUT
 
-    @staticmethod
-    def _get_autoscaling_group(region: str, instance_id: str) -> Optional[str]:
-        logger.debug('Retrieving auto-scaling-group data')
+    def _get_autoscaling_group(self, region: str, instance_id: str) -> Optional[str]:
+        self._logger.debug('Source/Metadata: Retrieving auto-scaling-group data')
         autoscaling = boto3.client('autoscaling', region_name=region)
         try:
             asg = [i.get('AutoScalingGroupName') for i in autoscaling.describe_auto_scaling_instances(
@@ -40,7 +43,7 @@ class MetadataSource(Source):
 
         # No reason it should be longer than 1 but worth a check
         if len(asg) > 1:  # pylint: disable=len-as-condition
-            logger.warning('Instance id %s is in multiple auto-scaling groups', instance_id)
+            self._logger.warning('Source/Metadata: Instance id %s is in multiple auto-scaling groups', instance_id)
         return asg[0]
 
     def _get_meta_data(self):
@@ -53,8 +56,9 @@ class MetadataSource(Source):
             joined_path = '{}/{}'.format(url_base, path)
             res = requests.get(joined_path)
             if res.status_code != 200:
-                logger.debug('Unable to retrieve metadata from %s. Got HTTP status code %d', path,
-                             res.status_code)
+                self._logger.debug('Source/Metadata: Unable to retrieve metadata from %s. Got HTTP status code %d',
+                                   path,
+                                   res.status_code)
                 continue
             if path.endswith('/'):
                 items = res.text.strip().split('\n')
@@ -64,9 +68,9 @@ class MetadataSource(Source):
                 results[path] = res.text
         return results
 
-    async def get(self) -> None:
+    def _get(self) -> None:
         timer = time.time()
-        properties = MetadataParser(self._get_meta_data()).parse()
+        properties = self._parser.parse(self._get_meta_data())
 
         instance_id = properties.get('meta-data/instance-id')
         availability_zone = properties.get('meta-data/placement/availability-zone')
@@ -76,25 +80,28 @@ class MetadataSource(Source):
             if not self.properties.get('auto-scaling-group'):
                 properties['auto-scaling-group'] = self._get_autoscaling_group(region, instance_id)
             else:
-                logger.debug('Using cached auto-scaling-group data.')
+                self._logger.debug('Source/Metadata: Using cached auto-scaling-group data.')
                 properties['auto-scaling-group'] = self.properties.get('auto-scaling-group')
 
         sha1 = hashlib.sha1()
         paths = properties.keys()
 
-        logger.debug('Source/Metadata: Fetched %d paths from the ec2-metadata service', len(paths),
-                     extra={'status': self.status()})
+        self._logger.debug('Source/Metadata: Fetched %d paths from the ec2-metadata service', len(paths),
+                           extra={'status': self.status()})
         for path in sorted(paths):
             sha1.update(path.encode('utf-8'))
         signature = base64.b64encode(sha1.digest())
 
-        if self._state == signature:
+        self._logger.debug('Source/Metadata: Polled %s source %s in %dms',
+                           self.__class__.__name__, self.name, time.time() - timer,
+                           extra={'status': self.status()})
+
+        if self._signature == signature:
+            self._status = SourceStatus.NO_UPDATE
             self._send_event(SourceEvents.NO_UPDATE, source=self)
-        else:
-            self._send_event(SourceEvents.UPDATE, source=self, data=properties)
+            return
 
-        logger.debug('Source/Metadata: Polled %s source %s in %dms',
-                     self.__class__.__name__, self.name, time.time() - timer,
-                     extra={'status': self.status()})
-        self._properties = properties
-
+        self._status = SourceStatus.OK
+        self._signature = signature
+        self._send_event(SourceEvents.UPDATE, source=self, data=properties)
+        self.properties = properties
