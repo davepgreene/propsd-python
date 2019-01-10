@@ -1,0 +1,21 @@
+[service]
+hostname = "0.0.0.0"
+
+[index]
+endpoint = "http://s3:4572"
+bucket = "propsd"
+path = "index.json"
+
+[metadata]
+host = "metadata:8080"
+
+[consul]
+host = "consul-server-bootstrap"
+scheme = "http"
+
+[log]
+json = false
+
+[properties.image]
+service = "some-cool-service"
+version = "1.0.0"
