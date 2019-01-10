@@ -1,0 +1,41 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    service: s3
+  name: s3
+spec:
+  selector:
+    matchLabels:
+      service: s3
+  replicas: 1
+  strategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxSurge: 1
+      maxUnavailable: 1
+  template:
+    metadata:
+      labels:
+        service: s3
+    spec:
+      containers:
+      - args:
+        - s3-mock
+        - --data
+        - /s3-data
+        - --verbose
+        image: propsd:latest
+        imagePullPolicy: Never
+        name: s3
+        ports:
+        - containerPort: 4572
+        resources: {}
+        volumeMounts:
+        - mountPath: /s3-data
+          name: s3-claim
+      restartPolicy: Always
+      volumes:
+      - name: s3-claim
+        persistentVolumeClaim:
+          claimName: s3-claim

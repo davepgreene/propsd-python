@@ -1,0 +1,38 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    service: propsd
+  name: propsd
+spec:
+  selector:
+    matchLabels:
+      service: propsd
+  replicas: 1
+  strategy:
+    type: Recreate
+  template:
+    metadata:
+      labels:
+        service: propsd
+    spec:
+      containers:
+      - args:
+        - propsd
+        - -c
+        - config/docker.toml
+        - --colorize
+        image: propsd:latest
+        imagePullPolicy: Never
+        name: propsd
+        ports:
+        - containerPort: 9100
+        resources: {}
+        volumeMounts:
+        - mountPath: /root/.aws
+          name: aws-credentials-claim
+      restartPolicy: Always
+      volumes:
+      - name: aws-credentials-claim
+        persistentVolumeClaim:
+          claimName: aws-credentials-claim
