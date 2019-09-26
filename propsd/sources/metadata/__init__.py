@@ -28,7 +28,7 @@ class MetadataSource(Source):
 
     def __init__(self, opts: Optional[dict] = None):
         super().__init__('ec2-metadata', 1, opts)
-        self._host = settings.get('metadata.host') if settings.get('metadata.host') else self.DEFAULT_TIMEOUT
+        self._host = settings.get('metadata.host') if settings.get('metadata.host') else self.DEFAULT_HOST
         self._timeout = settings.get('metadata.timeout') if settings.get('metadata.timeout') else self.DEFAULT_TIMEOUT
 
     def _get_autoscaling_group(self, region: str, instance_id: str) -> Optional[str]:
